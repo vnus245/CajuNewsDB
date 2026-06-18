@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CajuNews — Jornal Escolar Turma 202</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght=0,400;0,700;0,900;1,400&family=EB+Garamond:ital,wght=0,400;0,500;1,400&family=Oswald:wght=300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+
+:root{
+  --verde:#0f6d2c; --vermelho:#bf2217; --amarelo:#d4920a; --azul:#1a4e7a; --roxo:#6a1b9a;
+  --ink:#111; --papel:#fdfaf4; --papel2:#f4f0e6; --cinza:#555; --linha:#aaa;
+  --bg:var(--papel); --texto:var(--ink); --texto2:#222; --borda:var(--linha);
+}
+[data-theme="dark"]{
+  --bg:#121212; --texto:#f0ece4; --texto2:#ddd; --borda:#333; --linha:#333; --papel2:#1c1c1c; --ink:#f0ece4;
+}
+
+body{background:var(--bg);color:var(--texto);font-family:'EB Garamond',Georgia,serif;font-size:1.15rem;line-height:1.6;transition:background .3s, color .3s;}
+a{color:inherit;text-decoration:none}
+.container{max-width:1000px;margin:0 auto;padding:0 1.5rem}
+
+/* MODAIS */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s ease;padding:1rem;}
+.modal-overlay.aberto{opacity:1;pointer-events:all}
+.modal{background:var(--bg);max-width:750px;width:100%;max-height:90vh;overflow-y:auto;padding:2.5rem;position:relative;box-shadow:0 25px 50px rgba(0,0,0,0.5);transform:scale(0.95);transition:transform .3s ease;border:1px solid var(--borda);}
+.modal-overlay.aberto .modal{transform:scale(1)}
+.modal-fechar{position:absolute;top:1.5rem;right:1.5rem;background:none;border:none;cursor:pointer;font-size:1.8rem;color:var(--cinza);transition:color .2s}
+.modal-fechar:hover{color:var(--vermelho)}
+.modal-tag{font-family:'Oswald',sans-serif;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase;color:var(--verde);margin-bottom:.8rem}
+.modal-titulo{font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:900;line-height:1.15;margin-bottom:1.5rem}
+.modal-corpo{font-size:1.15rem;line-height:1.85;color:var(--texto2)}
+.modal-corpo p+p{margin-top:1.2rem}
+.modal-img-container{width:100%;margin-bottom:1.5rem;border:1px solid var(--borda);overflow:hidden;}
+.modal-img-container img{width:100%;display:block;object-fit:cover;max-height:400px;}
+
+/* PAINEL ABAS */
+.painel-abas{display:flex;gap:0.5rem;margin-bottom:1.5rem;border-bottom:2px solid var(--borda);flex-wrap:wrap;}
+.aba-btn{background:none;border:none;padding:0.6rem 1.2rem;font-family:'Oswald',sans-serif;font-size:0.85rem;text-transform:uppercase;cursor:pointer;color:var(--cinza);border-bottom:2px solid transparent;margin-bottom:-2px;}
+.aba-btn.ativa{color:var(--ink);border-bottom:2px solid var(--ink);font-weight:bold;}
+.aba-conteudo{display:none;}
+.aba-conteudo.ativa{display:block;}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.5rem;}
+@media(max-width:650px){.form-grid{grid-template-columns:1fr;}}
+.form-grupo{display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.8rem}
+.form-grupo.full{grid-column:1 / -1;}
+.form-grupo label{font-family:'Oswald',sans-serif;font-size:0.75rem;letter-spacing:1px;text-transform:uppercase;font-weight:600}
+.form-grupo input,.form-grupo select,.form-grupo textarea{padding:0.6rem;background:var(--papel2);border:1px solid var(--borda);color:var(--texto);font-family:inherit;font-size:1rem;outline:none;}
+
+.seletor-container{display:flex;gap:0.5rem;align-items:flex-end;}
+.btn-criar-novo{background:var(--verde);color:white;border:none;padding:0.6rem;font-family:'Oswald',sans-serif;font-size:0.75rem;text-transform:uppercase;cursor:pointer;height:38px;display:flex;align-items:center;justify-content:center;font-weight:bold;}
+.mini-preview-container{grid-column:1 / -1;background:var(--papel2);border:1px dashed var(--borda);padding:1rem;display:flex;flex-direction:column;align-items:center;gap:0.5rem;}
+.mini-preview-crop{width:240px;aspect-ratio:16/10;overflow:hidden;border:1px solid var(--borda);background:#e0e0e0;position:relative;}
+.mini-preview-crop img{width:100%;height:100%;object-fit:cover;display:none;}
+.mini-preview-txt{font-family:'Oswald',sans-serif;font-size:0.7rem;color:var(--cinza);text-transform:uppercase;}
+.controle-slider{display:flex;align-items:center;background:var(--bg);padding:0.4rem;border:1px solid var(--borda);width:100%;}
+.controle-slider input{width:100%;cursor:pointer;}
+.btn-salvar{background:var(--ink);color:var(--bg);border:1px solid var(--borda);padding:0.8rem;font-family:'Oswald',sans-serif;font-size:0.85rem;text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:all 0.2s;width:100%;font-weight:600;}
+.btn-salvar:hover{background:var(--verde);color:#fff;border-color:var(--verde)}
+
+/* SEÇÕES */
+.layout-principal{display:grid;grid-template-columns:1fr 280px;gap:2rem;margin-bottom:3rem;}
+@media(max-width:850px){.layout-principal{grid-template-columns:1fr;}}
+.box-enquete{background:var(--papel2);border:1px solid var(--borda);padding:1.5rem;height:max-content;}
+.enquete-titulo{font-family:'Oswald',sans-serif;font-size:0.9rem;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid var(--ink);padding-bottom:0.4rem;margin-bottom:1rem;}
+.enquete-pergunta{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:bold;line-height:1.3;margin-bottom:1.2rem;}
+.enquete-opcoes{display:flex;flex-direction:column;gap:0.6rem;}
+.enquete-btn{background:var(--bg);border:1px solid var(--borda);padding:0.6rem 1rem;text-align:left;font-family:inherit;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.enquete-btn:hover{background:var(--ink);color:var(--bg);}
+.enquete-resultado-linha{margin-bottom:0.8rem;}
+.enquete-txt-info{display:flex;justify-content:space-between;font-size:0.9rem;font-weight:bold;margin-bottom:0.2rem;}
+.enquete-barra-bg{background:rgba(0,0,0,0.1);height:8px;border-radius:4px;overflow:hidden;}
+.enquete-barra-fill{background:var(--verde);height:100%;width:0%;transition:width 0.6s ease;}
+
+.secao-mural{margin-top:4rem;padding-bottom:4rem;border-top:2px solid var(--ink);padding-top:2rem;}
+.mural-grid{display:grid;grid-template-columns:1fr 2fr;gap:2rem;}
+@media(max-width:700px){.mural-grid{grid-template-columns:1fr;}}
+.mural-form{background:var(--papel2);border:1px solid var(--borda);padding:1.5rem;height:max-content;}
+.mural-feed{display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-height:400px;overflow-y:auto;padding-right:0.5rem;}
+@media(max-width:500px){.mural-feed{grid-template-columns:1fr;}}
+.recado-card{background:var(--papel2);border:1px solid var(--borda);padding:1rem;position:relative;box-shadow:2px 2px 0px rgba(0,0,0,0.05);}
+.recado-de{font-family:'Oswald',sans-serif;font-size:0.75rem;text-transform:uppercase;color:var(--vermelho);font-weight:bold;}
+.recado-texto{font-size:1rem;line-height:1.4;margin-top:0.3rem;font-style:italic;}
+.btn-remover-recado{background:none;border:none;color:var(--vermelho);font-size:0.7rem;cursor:pointer;float:right;font-family:'Oswald',sans-serif;text-transform:uppercase;}
+
+.topo-meta{display:flex;justify-content:space-between;font-family:'Oswald',sans-serif;font-size:0.75rem;letter-spacing:1px;text-transform:uppercase;padding:0.3rem 0;border-bottom:1px solid var(--borda);}
+.masthead-canva{text-align:center;padding:1.5rem 0 1rem;}
+.masthead-canva h1{font-family:'Playfair Display',serif;font-size:clamp(3rem, 8vw, 5.5rem);font-weight:700;letter-spacing:1px;line-height:1;margin-bottom:0.3rem;}
+.masthead-canva .sub-slogan{font-family:'Oswald',sans-serif;font-size:0.7rem;letter-spacing:4px;text-transform:uppercase;border-top:1px solid var(--borda);border-bottom:1px solid var(--borda);padding:0.4rem 0;margin-top:0.5rem;color:var(--cinza);}
+.apresentacao-pibid{text-align:justify;font-size:1.05rem;color:var(--texto);padding:1.5rem 0;border-bottom:1px solid var(--borda);margin-bottom:2rem;}
+
+.card-principal{display:grid;grid-template-columns:1.3fr 1fr;gap:2rem;cursor:pointer;padding-bottom:1.5rem;}
+.card-p-img-wrap{background:var(--papel2);border:1px solid var(--borda);aspect-ratio:16/10;position:relative;overflow:hidden;}
+.card-p-img{width:100%;height:100%;object-fit:cover;display:none;}
+.card-p-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--cinza);text-align:center;border:2px dashed var(--borda);margin:0.5rem;padding:1rem;}
+.card-p-body{display:flex;flex-direction:column;justify-content:center;}
+.card-p-tag{font-family:'Oswald',sans-serif;font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--vermelho);margin-bottom:0.5rem;font-weight:600;}
+.card-p-titulo{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;line-height:1.2;margin-bottom:1rem;}
+.card-p-resumo{font-size:1.05rem;color:var(--texto);margin-bottom:1rem;}
+@media(max-width:768px){.card-principal{grid-template-columns:1fr;gap:1rem;}}
+
+.grid-4, .grid-novas{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem;align-items:stretch;margin-top:1rem;}
+.titulo-setorial{font-family:'Oswald',sans-serif;font-size:0.8rem;letter-spacing:2px;text-transform:uppercase;border-bottom:2px solid var(--ink);padding-bottom:0.3rem;margin-bottom:1rem;}
+.card{cursor:pointer;background:none;border:none;text-align:left;display:flex;flex-direction:column;height:100%;}
+.card-img-wrap{width:100%;aspect-ratio:4/3;overflow:hidden;margin-bottom:0.8rem;background:var(--papel2);border:1px solid var(--borda);position:relative;}
+.card-img{width:100%;height:100%;object-fit:cover;display:block;}
+.card-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-size:0.85rem;letter-spacing:1px;color:#fff;font-weight:500;}
+.card-tag{font-family:'Oswald',sans-serif;font-size:.6rem;letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:.4rem}
+.card-titulo{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;line-height:1.25;margin-bottom:.5rem;color:var(--texto);}
+.card-resumo{font-size:.95rem;line-height:1.5;color:var(--texto);flex-grow:1;margin-bottom:1rem;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+.card-footer{font-family:'Oswald',sans-serif;font-size:0.6rem;color:var(--cinza);border-top:1px solid var(--borda);padding-top:0.4rem;display:flex;justify-content:space-between;}
+@media(max-width:900px){.grid-4, .grid-novas{grid-template-columns:1fr 1fr;}}
+@media(max-width:550px){.grid-4, .grid-novas{grid-template-columns:1fr;}}
+
+.btn-escritor-nav{border:1px dashed var(--vermelho) !important;color:var(--vermelho) !important;font-weight:bold;background:none;padding:0.4rem 0.8rem;font-family:'Oswald',sans-serif;font-size:0.7rem;text-transform:uppercase;cursor:pointer;}
+.btn-escritor-nav:hover{background:var(--vermelho);color:#fff !important;}
+.btn-dark{background:none;border:none;cursor:pointer;color:var(--texto);font-size:1.1rem;}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modalOverlay">
+  <article class="modal">
+    <button class="modal-fechar" id="modalFechar">✕</button>
+    <div class="modal-tag" id="modalTag"></div>
+    <h2 class="modal-titulo" id="modalTitulo"></h2>
+    <div class="modal-img-container" id="modalImgContainer"><img id="modalImg" src="" alt="Imagem"></div>
+    <div class="modal-corpo" id="modalCorpo"></div>
+  </article>
+</div>
+
+<div class="modal-overlay" id="modalEscritorOverlay">
+  <article class="modal" style="max-width: 800px; padding-top: 1.5rem;">
+    <button class="modal-fechar" id="modalEscritorFechar">✕</button>
+    
+    <div class="painel-abas">
+      <button type="button" class="aba-btn ativa" id="abaMateriasBtn" onclick="mudarAba('abaMaterias')">📰 Modificar Notícias</button>
+      <button type="button" class="aba-btn" id="abaEnquetesBtn" onclick="mudarAba('abaEnquetes')">📊 Enquetes e Mural</button>
+      <button type="button" class="aba-btn" id="abaGeralBtn" onclick="mudarAba('abaGeral')">⚙️ Configurações Gerais</button>
+    </div>
+    
+    <div id="abaMaterias" class="aba-conteudo ativa">
+      <form id="formEscritor">
+        <div class="form-grid">
+          <div class="form-grupo full seletor-container">
+            <div style="flex-grow:1; display:flex; flex-direction:column; gap:0.4rem;">
+              <label for="editColuna">Escolha qual Seção vai Alterar:</label>
+              <select id="editColuna">
+                <option value="9">🚨 MANCHETE PRINCIPAL</option>
+                <option value="6">Esportes</option>
+                <option value="7">Comédia</option>
+                <option value="4">Entrevistas</option>
+                <option value="8">Cultura</option>
+              </select>
+            </div>
+            <button type="button" class="btn-criar-novo" id="btnCriarNovo">➕ Criar Nova Manchete</button>
+          </div>
+          <div class="form-grupo full" id="statusModoEdicao" style="display:none; background:#e2f0d9; padding:0.5rem; border:1px solid #b4c6e7; font-family:'Oswald',sans-serif; font-size:0.8rem; color:#385723;">✨ MODO: CRIANDO NOVA NOTÍCIA INDEPENDENTE</div>
+          <div class="form-grupo"><label for="editTag">Subtítulo / Cartola:</label><input type="text" id="editTag" required></div>
+          <div class="form-grupo full"><label for="editTitulo">Título Principal:</label><input type="text" id="editTitulo" required></div>
+          <div class="form-grupo full"><label for="editResumo">Resumo da Capa:</label><textarea id="editResumo" rows="2" required></textarea></div>
+          <div class="form-grupo"><label>Subir Foto:</label><input type="file" id="editFile" accept="image/*"></div>
+          <div class="form-grupo"><label for="editUrl">Ou Link URL da Imagem:</label><input type="url" id="editUrl" placeholder="https://"></div>
+          <div class="mini-preview-container">
+            <span class="mini-preview-txt">👁️ Pré-visualização do Corte</span>
+            <div class="mini-preview-crop"><img id="miniPreviewImg" src="" alt="Preview"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; width:100%; margin-top:0.5rem;">
+              <div class="form-grupo"><label style="font-size:0.65rem;">🔍 Zoom:</label><div class="controle-slider"><input type="range" id="editZoom" min="1" max="3" step="0.05" value="1"></div></div>
+              <div class="form-grupo"><label style="font-size:0.65rem;">↕️ Posição Vertical:</label><div class="controle-slider"><input type="range" id="editPosicao" min="0" max="100" step="1" value="50"></div></div>
+            </div>
+          </div>
+          <div class="form-grupo full"><label for="editTexto">Matéria Completa:</label><textarea id="editTexto" rows="4" required></textarea></div>
+        </div>
+        <button type="submit" class="btn-salvar">Publicar na Nuvem 🚀</button>
+      </form>
+    </div>
+
+    <div id="abaEnquetes" class="aba-conteudo">
+      <form id="formGerenciarEnquete">
+        <h3 style="font-family:'Oswald',sans-serif; text-transform:uppercase; margin-bottom:1rem; border-bottom:1px solid var(--borda);">Editar Enquete Escolar</h3>
+        <div class="form-grid">
+          <div class="form-grupo full"><label for="cfgEnquetePergunta">Pergunta da Enquete:</label><input type="text" id="cfgEnquetePergunta" required></div>
+          <div class="form-grupo"><label for="cfgEnqueteOp1">Opção 1:</label><input type="text" id="cfgEnqueteOp1" required></div>
+          <div class="form-grupo"><label for="cfgEnqueteOp2">Opção 2:</label><input type="text" id="cfgEnqueteOp2" required></div>
+          <div class="form-grupo"><label for="cfgEnqueteOp3">Opção 3:</label><input type="text" id="cfgEnqueteOp3" required></div>
+          <div class="form-grupo"><label>Limpar Votação:</label><button type="button" class="btn-salvar" onclick="zerarVotosEnquete()" style="background:var(--vermelho); color:white; padding:0.5rem;">Resetar Votos para 0</button></div>
+        </div>
+        <button type="submit" class="btn-salvar" style="margin-bottom:2rem;">Salvar Nova Enquete</button>
+      </form>
+      <h3 style="font-family:'Oswald',sans-serif; text-transform:uppercase; margin-bottom:1rem; border-bottom:1px solid var(--borda);">Gerenciar Mensagens do Mural</h3>
+      <div id="listaRecadosPainel" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem; background:var(--papel2); padding:1rem; border:1px solid var(--borda);"></div>
+    </div>
+
+    <div id="abaGeral" class="aba-conteudo">
+      <form id="formGeral">
+        <div class="form-grid">
+          <div class="form-grupo"><label for="cfgNomeJornal">Nome do Jornal:</label><input type="text" id="cfgNomeJornal" value="CAJU NEWS"></div>
+          <div class="form-grupo"><label for="cfgSlogan">Slogan:</label><input type="text" id="cfgSlogan" value="WORLD OF PHOTOGRAPHY"></div>
+          <div class="form-grupo full"><label for="cfgApresentacao">Apresentação:</label><textarea id="cfgApresentacao" rows="4"></textarea></div>
+        </div>
+        <button type="submit" class="btn-salvar" style="background:var(--verde); color:white;">Salvar Configurações</button>
+      </form>
+    </div>
+  </article>
+</div>
+
+<div class="container">
+  <div class="topo-meta">
+    <span>STUDIO SHOWCASE</span>
+    <div>
+      <span id="siteDataAtual">CARREGANDO...</span>
+      <button class="btn-dark" id="btnDark" style="margin-left:10px;">🌙</button>
+      <button id="btnAbrirEscritor" class="btn-escritor-nav" style="margin-left:10px;">✍️ Painel do Escritor</button>
+    </div>
+  </div>
+
+  <header class="masthead-canva">
+    <h1 id="siteNomeJornal">CAJU NEWS</h1>
+    <div class="sub-slogan" id="siteSlogan">WORLD OF PHOTOGRAPHY</div>
+  </header>
+
+  <section class="apresentacao-pibid" id="siteApresentacao">Carregando...</section>
+
+  <main class="layout-principal">
+    <section class="secao-manchete">
+      <div class="card-principal card-gatilho" data-id="9" id="card-9">
+        <div class="card-p-img-wrap" id="wrap-9">
+          <div class="card-p-placeholder" id="placeholder-9"><strong>[ Carregando Manchete... ]</strong></div>
+          <img class="card-p-img" id="img-9" src="" alt="Destaque">
+        </div>
+        <div class="card-p-body" style="margin-top:1rem;">
+          <div class="card-p-tag" id="tag-9">...</div>
+          <h2 class="card-p-titulo" id="titulo-9">Carregando...</h2>
+          <p class="card-p-resumo" id="resumo-9">...</p>
+          <div class="card-footer"><span>Caderno Principal</span><span style="color:var(--verde); font-weight:bold;">Ler</span></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="box-enquete">
+      <div class="enquete-titulo">📊 Enquete Escolar</div>
+      <div class="enquete-pergunta" id="siteEnquetePergunta">Carregando enquete...</div>
+      <div id="enqueteConteudo"></div>
+    </aside>
+  </main>
+
+  <section>
+    <div class="titulo-setorial">Colunas e Opinião</div>
+    <div class="grid-4">
+      <article class="card card-gatilho" data-id="6" id="card-6">
+        <div class="card-img-wrap" id="wrap-6"><div class="card-placeholder" style="background:var(--verde);" id="placeholder-6">ESPORTES</div><img class="card-img" id="img-6" src="" alt="" style="display:none;"></div>
+        <div class="card-tag" style="color:var(--verde);" id="tag-6">Esportes</div>
+        <h3 class="card-titulo" id="titulo-6">Carregando...</h3>
+        <p class="card-resumo" id="resumo-6">...</p>
+        <div class="card-footer"><span>Esportes</span><span>Ler</span></div>
+      </article>
+      <article class="card card-gatilho" data-id="7" id="card-7">
+        <div class="card-img-wrap" id="wrap-7"><div class="card-placeholder" style="background:var(--amarelo);" id="placeholder-7">COMÉDIA</div><img class="card-img" id="img-7" src="" alt="" style="display:none;"></div>
+        <div class="card-tag" style="color:var(--amarelo);" id="tag-7">Humor</div>
+        <h3 class="card-titulo" id="titulo-7">Carregando...</h3>
+        <p class="card-resumo" id="resumo-7">...</p>
+        <div class="card-footer"><span>Humor</span><span>Ler</span></div>
+      </article>
+      <article class="card card-gatilho" data-id="4" id="card-4">
+        <div class="card-img-wrap" id="wrap-4"><div class="card-placeholder" style="background:var(--azul);" id="placeholder-4">ENTREVISTAS</div><img class="card-img" id="img-4" src="" alt="" style="display:none;"></div>
+        <div class="card-tag" style="color:var(--azul);" id="tag-4">Entrevistas</div>
+        <h3 class="card-titulo" id="titulo-4">Carregando...</h3>
+        <p class="card-resumo" id="resumo-4">...</p>
+        <div class="card-footer"><span>Entrevistas</span><span>Ler</span></div>
+      </article>
+      <article class="card card-gatilho" data-id="8" id="card-8">
+        <div class="card-img-wrap" id="wrap-8"><div class="card-placeholder" style="background:var(--roxo);" id="placeholder-8">CULTURA</div><img class="card-img" id="img-8" src="" alt="" style="display:none;"></div>
+        <div class="card-tag" style="color:var(--roxo);" id="tag-8">Cultura</div>
+        <h3 class="card-titulo" id="titulo-8">Carregando...</h3>
+        <p class="card-resumo" id="resumo-8">...</p>
+        <div class="card-footer"><span>Cultura</span><span>Ler</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section style="margin-top:3rem;" id="secaoNovasMaterias">
+    <div class="titulo-setorial">Matérias Recentes</div>
+    <div class="grid-novas" id="containerNovasCards"></div>
+  </section>
+
+  <section class="secao-mural">
+    <div class="titulo-setorial">Mural de Recados & Correio Elegante</div>
+    <div class="mural-grid">
+      <form class="mural-form" id="formMuralRecado">
+        <div class="form-grupo"><label for="muralNome">Seu Nome / Apelido:</label><input type="text" id="muralNome" required></div>
+        <div class="form-grupo"><label for="muralTexto">Recado:</label><textarea id="muralTexto" rows="3" required></textarea></div>
+        <button type="submit" class="btn-salvar" style="font-size:0.75rem;">Enviar para o Mural</button>
+      </form>
+      <div class="mural-feed" id="muralFeedRecados"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ==========================================
+// 🔑 COLOQUE OS DADOS DO SEU SUPABASE AQUI:
+// ==========================================
+const SUPABASE_URL = "SUA_URL_AQUI";
+const SUPABASE_KEY = "SUA_CHAVE_ANON_KEY_AQUI";
+
+// Conecta automaticamente com o banco de dados online
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Cache local temporário
+let noticiasDB = {};
+let recadosDB = [];
+let enqueteDB = {};
+let votosEnquete = { total: 0, opcoes: { 1: 0, 2: 0, 3: 0 } };
+let configGeralDB = {};
+let emModoCriacaoNova = false;
+
+// Formatar data superior
+const formatador = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+document.getElementById('siteDataAtual').innerText = formatador.format(new Date()).toUpperCase();
+
+async function carregarTudoDoBanco() {
+  try {
+    // 1. Busca Configurações e Notícias
+    let { data: configs } = await supabase.from('caju_config').select('*');
+    if(configs && configs.length > 0) {
+      configGeralDB = configs[0].dados_config;
+      enqueteDB = configs[0].dados_enquete;
+    }
+
+    let { data: materias } = await supabase.from('caju_noticias').select('*');
+    noticiasDB = {};
+    if(materias) {
+      materias.forEach(m => { noticiasDB[m.id_noticia] = m.conteudo; });
+    }
+
+    // 2. Busca Recados
+    let { data: recados } = await supabase.from('caju_recados').select('*').order('created_at', { ascending: true });
+    recadosDB = recados || [];
+
+    // 3. Busca Votos
+    let { data: votos } = await supabase.from('caju_votos').select('*');
+    votosEnquete = { total: 0, opcoes: { 1: 0, 2: 0, 3: 0 } };
+    if(votos) {
+      votos.forEach(v => {
+        votosEnquete.total++;
+        votosEnquete.opcoes[v.opcao]++;
+      });
+    }
+
+    atualizarDOMJornal();
+    renderizarEnquete();
+    renderizarMural();
+  } catch (err) { console.error("Erro ao carregar dados:", err); }
+}
+
+function mudarAba(idAba) {
+  document.querySelectorAll('.aba-conteudo').forEach(el => el.classList.remove('ativa'));
+  document.querySelectorAll('.aba-btn').forEach(el => el.classList.remove('ativa'));
+  document.getElementById(idAba).classList.add('ativa');
+  document.getElementById(idAba + 'Btn').classList.add('ativa');
+}
+
+function abrirModal(id) {
+  const dados = noticiasDB[id];
+  if(!dados) return;
+  document.getElementById('modalTag').innerText = dados.tag;
+  document.getElementById('modalTitulo').innerText = dados.titulo;
+  document.getElementById('modalCorpo').innerHTML = dados.corpo;
+  const imgCont = document.getElementById('modalImgContainer');
+  const mImg = document.getElementById('modalImg');
+  if (dados.imagem) {
+    mImg.src = dados.imagem;
+    imgCont.style.display = "block";
+    mImg.style.transform = `scale(${dados.zoom || 1}) translateY(${(dados.posicao || 50) - 50}px)`;
+  } else { imgCont.style.display = "none"; }
+  document.getElementById('modalOverlay').classList.add('aberto');
+}
+
+function vincularGatilhosModais() {
+  document.querySelectorAll('.card-gatilho').forEach(item => {
+    const novoItem = item.cloneNode(true);
+    item.replaceWith(novoItem);
+    novoItem.addEventListener('click', () => abrirModal(novoItem.getAttribute('data-id')));
+  });
+}
+
+function renderizarEnquete() {
+  document.getElementById('siteEnquetePergunta').innerText = enqueteDB.pergunta || "Enquete";
+  const container = document.getElementById('enqueteConteudo');
+  const jaVotou = localStorage.getItem('cajuVotou_' + enqueteDB.pergunta);
+
+  if (jaVotou) {
+    let t = votosEnquete.total || 1;
+    let p1 = Math.round((votosEnquete.opcoes[1] / t) * 100) || 0;
+    let p2 = Math.round((votosEnquete.opcoes[2] / t) * 100) || 0;
+    let p3 = Math.round((votosEnquete.opcoes[3] / t) * 100) || 0;
+    container.innerHTML = `
+      <div class="enquete-resultado-linha"><div class="enquete-txt-info"><span>${enqueteDB.op1}</span><span>${p1}%</span></div><div class="enquete-barra-bg"><div class="enquete-barra-fill" style="width:${p1}%"></div></div></div>
+      <div class="enquete-resultado-linha"><div class="enquete-txt-info"><span>${enqueteDB.op2}</span><span>${p2}%</span></div><div class="enquete-barra-bg"><div class="enquete-barra-fill" style="width:${p2}%"></div></div></div>
+      <div class="enquete-resultado-linha"><div class="enquete-txt-info"><span>${enqueteDB.op3}</span><span>${p3}%</span></div><div class="enquete-barra-bg"><div class="enquete-barra-fill" style="width:${p3}%"></div></div></div>
+      <p style="font-size:0.75rem; text-align:center; color:var(--cinza); margin-top:1rem;">Total: ${votosEnquete.total} votos.</p>
+    `;
+  } else {
+    container.innerHTML = `
+      <div class="enquete-opcoes">
+        <button class="enquete-btn" onclick="votarEnquete(1)">${enqueteDB.op1}</button>
+        <button class="enquete-btn" onclick="votarEnquete(2)">${enqueteDB.op2}</button>
+        <button class="enquete-btn" onclick="votarEnquete(3)">${enqueteDB.op3}</button>
+      </div>
+    `;
+  }
+}
+
+async function votarEnquete(opcao) {
+  localStorage.setItem('cajuVotou_' + enqueteDB.pergunta, "true");
+  await supabase.from('caju_votos').insert([{ opcao }]);
+  carregarTudoDoBanco();
+}
+
+function renderizarMural() {
+  const feed = document.getElementById('muralFeedRecados');
+  const listaPainel = document.getElementById('listaRecadosPainel');
+  feed.innerHTML = ""; listaPainel.innerHTML = "";
+
+  recadosDB.slice().reverse().forEach((rec) => {
+    const card = document.createElement('div');
+    card.className = "recado-card";
+    card.innerHTML = `<span class="recado-de">De: ${rec.nome}</span><p class="recado-texto">"${rec.texto}"</p>`;
+    feed.appendChild(card);
+
+    const itemPainel = document.createElement('div');
+    itemPainel.style = "display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ccc; padding:0.3rem 0;";
+    itemPainel.innerHTML = `
+      <span style="font-size:0.85rem;"><strong>${rec.nome}:</strong> ${rec.texto.substring(0,25)}...</span>
+      <button type="button" class="btn-remover-recado" onclick="removerRecado(${rec.id})">Remover</button>
+    `;
+    listaPainel.appendChild(itemPainel);
+  });
+}
+
+async function removerRecado(id) {
+  await supabase.from('caju_recados').delete().eq('id', id);
+  carregarTudoDoBanco();
+}
+
+document.getElementById('formMuralRecado').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const nome = document.getElementById('muralNome').value.trim();
+  const texto = document.getElementById('muralTexto').value.trim();
+  if(nome && texto) {
+    await supabase.from('caju_recados').insert([{ nome, texto }]);
+    document.getElementById('formMuralRecado').reset();
+    carregarTudoDoBanco();
+  }
+});
+
+function atualizarDOMJornal() {
+  document.getElementById('siteNomeJornal').innerText = configGeralDB.nome || "CAJU NEWS";
+  document.getElementById('siteSlogan').innerText = configGeralDB.slogan || "";
+  document.getElementById('siteApresentacao').innerText = configGeralDB.apresentacao || "";
+
+  // Limpa áreas estruturadas pré-carregadas para remontar
+  Object.keys(noticiasDB).forEach(id => {
+    const d = noticiasDB[id];
+    const tituloEl = document.getElementById(`titulo-${id}`);
+    const resumoEl = document.getElementById(`resumo-${id}`);
+    const tagEl = document.getElementById(`tag-${id}`);
+    const imgEl = document.getElementById(`img-${id}`);
+    const placeholderEl = document.getElementById(`placeholder-${id}`);
+
+    if (tituloEl) tituloEl.innerText = d.titulo;
+    if (resumoEl) resumoEl.innerText = d.resumo;
+    if (tagEl) tagEl.innerText = d.tag;
+    if (imgEl) {
+      if (d.imagem) {
+        imgEl.src = d.imagem; imgEl.style.display = "block";
+        imgEl.style.transform = `scale(${d.zoom || 1}) translateY(${(d.posicao || 50) - 50}px)`;
+        if (placeholderEl) placeholderEl.style.display = "none";
+      } else {
+        imgEl.style.display = "none";
+        if (placeholderEl) placeholderEl.style.display = "flex";
+      }
+    }
+  });
+
+  const containerNovas = document.getElementById('containerNovasCards');
+  containerNovas.innerHTML = "";
+  let temNovas = false;
+
+  Object.keys(noticiasDB).forEach(id => {
+    if (parseInt(id) >= 100) {
+      temNovas = true;
+      const d = noticiasDB[id];
+      const art = document.createElement('article');
+      art.className = "card card-gatilho"; art.setAttribute('data-id', id);
+      art.innerHTML = `
+        <div class="card-img-wrap">${d.imagem ? `<img class="card-img" src="${d.imagem}" style="transform: scale(${d.zoom || 1}) translateY(${(d.posicao || 50) - 50}px); display:block;">` : `<div class="card-placeholder" style="background:var(--cinza)">NOVA</div>`}</div>
+        <div class="card-tag" style="color:var(--ink);">${d.tag}</div><h3 class="card-titulo">${d.titulo}</h3><p class="card-resumo">${d.resumo}</p>
+        <div class="card-footer"><span>Recente</span><span>Ler</span></div>
+      `;
+      containerNovas.appendChild(art);
+    }
+  });
+  document.getElementById('secaoNovasMaterias').style.display = temNovas ? "block" : "none";
+  vincularGatilhosModais();
+}
+
+function carregarMateriaNoEditor() {
+  if (emModoCriacaoNova) return;
+  const id = document.getElementById('editColuna').value;
+  const d = noticiasDB[id];
+  if (d) {
+    document.getElementById('editTag').value = d.tag;
+    document.getElementById('editTitulo').value = d.titulo;
+    document.getElementById('editResumo').value = d.resumo;
+    document.getElementById('editTexto').value = d.corpo ? d.corpo.replace(/<p>|<\/p>/g, "") : "";
+    document.getElementById('editUrl').value = (d.imagem && !d.imagem.startsWith('data:')) ? d.imagem : "";
+    document.getElementById('editZoom').value = d.zoom || 1;
+    document.getElementById('editPosicao').value = d.posicao || 50;
+    const prev = document.getElementById('miniPreviewImg');
+    if(d.imagem) { prev.src = d.imagem; prev.style.display = "block"; } else { prev.style.display = "none"; }
+    atualizarMiniPreview();
+  }
+}
+
+document.getElementById('editColuna').addEventListener('change', () => {
+  emModoCriacaoNova = false;
+  document.getElementById('statusModoEdicao').style.display = "none";
+  carregarMateriaNoEditor();
+});
+
+document.getElementById('btnCriarNovo').addEventListener('click', () => {
+  emModoCriacaoNova = true;
+  document.getElementById('statusModoEdicao').style.display = "block";
+  document.getElementById('formEscritor').reset();
+  document.getElementById('miniPreviewImg').style.display = "none";
+});
+
+function atualizarMiniPreview() {
+  const prev = document.getElementById('miniPreviewImg');
+  prev.style.transform = `scale(${document.getElementById('editZoom').value}) translateY(${(document.getElementById('editPosicao').value) - 50}px)`;
+}
+document.getElementById('editZoom').addEventListener('input', atualizarMiniPreview);
+document.getElementById('editPosicao').addEventListener('input', atualizarMiniPreview);
+
+document.getElementById('formEscritor').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const file = document.getElementById('editFile').files[0];
+  const url = document.getElementById('editUrl').value;
+  
+  let imgFinal = url;
+  if(file) {
+    imgFinal = await new Promise(res => {
+      const r = new FileReader(); r.onload = (ev) => res(ev.target.result); r.readAsDataURL(file);
+    });
+  }
+
+  let id = parseInt(document.getElementById('editColuna').value);
+  if(emModoCriacaoNova) { id = Date.now() % 100000; } // ID Único com carimbo de tempo
+
+  const payload = {
+    tag: document.getElementById('editTag').value,
+    titulo: document.getElementById('editTitulo').value,
+    resumo: document.getElementById('editResumo').value,
+    corpo: `<p>${document.getElementById('editTexto').value.split('\n').join('</p><p>')}</p>`,
+    imagem: imgFinal || (noticiasDB[id] ? noticiasDB[id].imagem : ""),
+    zoom: document.getElementById('editZoom').value,
+    posicao: document.getElementById('editPosicao').value
+  };
+
+  // Dá um 'Upsert' no Supabase: Se o ID existe, atualiza. Se não, cria.
+  await supabase.from('caju_noticias').upsert([{ id_noticia: id, conteudo: payload }], { onConflict: 'id_noticia' });
+  
+  emModoCriacaoNova = false;
+  document.getElementById('statusModoEdicao').style.display = "none";
+  document.getElementById('modalEscritorOverlay').classList.remove('aberto');
+  carregarTudoDoBanco();
+});
+
+document.getElementById('formGerenciarEnquete').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  enqueteDB.pergunta = document.getElementById('cfgEnquetePergunta').value;
+  enqueteDB.op1 = document.getElementById('cfgEnqueteOp1').value;
+  enqueteDB.op2 = document.getElementById('cfgEnqueteOp2').value;
+  enqueteDB.op3 = document.getElementById('cfgEnqueteOp3').value;
+
+  await supabase.from('caju_config').upsert([{ id: 1, dados_config: configGeralDB, dados_enquete: enqueteDB }]);
+  document.getElementById('modalEscritorOverlay').classList.remove('aberto');
+  carregarTudoDoBanco();
+});
+
+async function zerarVotosEnquete() {
+  await supabase.from('caju_votos').delete().neq('opcao', 0); // Limpa todos os votos
+  carregarTudoDoBanco();
+  alert("Votação limpa!");
+}
+
+document.getElementById('formGeral').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  configGeralDB.nome = document.getElementById('cfgNomeJornal').value;
+  configGeralDB.slogan = document.getElementById('cfgSlogan').value;
+  configGeralDB.apresentacao = document.getElementById('cfgApresentacao').value;
+
+  await supabase.from('caju_config').upsert([{ id: 1, dados_config: configGeralDB, dados_enquete: enqueteDB }]);
+  document.getElementById('modalEscritorOverlay').classList.remove('aberto');
+  carregarTudoDoBanco();
+});
+
+document.getElementById('btnAbrirEscritor').addEventListener('click', () => {
+  document.getElementById('cfgNomeJornal').value = configGeralDB.nome || "";
+  document.getElementById('cfgSlogan').value = configGeralDB.slogan || "";
+  document.getElementById('cfgApresentacao').value = configGeralDB.apresentacao || "";
+  document.getElementById('cfgEnquetePergunta').value = enqueteDB.pergunta || "";
+  document.getElementById('cfgEnqueteOp1').value = enqueteDB.op1 || "";
+  document.getElementById('cfgEnqueteOp2').value = enqueteDB.op2 || "";
+  document.getElementById('cfgEnqueteOp3').value = enqueteDB.op3 || "";
+  carregarMateriaNoEditor();
+  document.getElementById('modalEscritorOverlay').classList.add('aberto');
+});
+
+document.getElementById('modalFechar').addEventListener('click', () => document.getElementById('modalOverlay').classList.remove('aberto'));
+document.getElementById('modalEscritorFechar').addEventListener('click', () => document.getElementById('modalEscritorOverlay').classList.remove('aberto'));
+
+// Inicialização
+carregarTudoDoBanco();
+</script>
+</body>
+</html>
